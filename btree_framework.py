@@ -1,58 +1,40 @@
-# import btree
+from BTree import btree
+from sqlParser import SQL
 
-# Reference: https://www.tutorialspoint.com/python_data_structure/python_binary_tree.htm
+class Table:
+    def __init__(self, name, PK) -> None:
+        self.tree = btree.BTree(1)
+        self.PK = PK
+        self.name = name
 
-# Create Root
-class Node:
-    def __init__(self, data) -> None:
-        self.left = None
-        self.right = None
-        self.data = data
+    def __init__(self, name) -> None:
+        self.tree = btree.BTree(1)
+        self.name = name
+
+    def insert_row(self, row):
+        key = ""
+        for k in self.PK:
+            k += "(" + row[k] + ")"
+        self.tree[key]= row
+
+    def delete_row(self, key):
+        del self.tree[key]
+
+    def get_row(self, key):
+        return self.tree.get(key)
     
-#     def PrintTree(self):
-#         print(self.data)
+def operation(sql):
+    if sql.operation == "CREATE":
+        test = sql # Code here
+        
+def insertion(btree, sqlParser, sql):
+    btree = BTree()
+    sql = "INSERT INTO my_table (key, value) VALUES (1, 'one')"
+    insertion(btree, sql)
     
-# root = Node(10)
-# root.PrintTree
+    query = sqlParser(sql)
 
-# Insert Node
-def insert(self, data):
-      if self.data:
-         if data < self.data:
-            if self.left is None:
-               self.left = Node(data)
-            else:
-               self.left.insert(data)
-         else data > self.data:
-            if self.right is None:
-               self.right = Node(data)
-            else:
-               self.right.insert(data)
-      else:
-         self.data = data
+    key = query['values'][0]
+    value = query['values'][1]
 
-# Print the Tree
-   def PrintTree(self):
-      if self.left:
-         self.left.PrintTree()
-      print( self.data),
-      if self.right:
-         self.right.PrintTree()
-
-# Inorder traversal: Left to Root to Right
-   def inorderTraversal(self, root):
-      res = []
-      if root:
-         res = self.inorderTraversal(root.left)
-         res.append(root.data)
-         res = res + self.inorderTraversal(root.right)
-      return res
-
-# root = Node(27)
-# root.insert(14)
-# root.insert(35)
-# root.insert(10)
-# root.insert(19)
-# root.insert(31)
-# root.insert(42)
-# print(root.inorderTraversal(root))
+    btree.set(key, value)
