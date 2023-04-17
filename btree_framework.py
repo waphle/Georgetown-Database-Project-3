@@ -27,7 +27,7 @@ def operation(sql):
     if sql.operation == "CREATE":
         test = sql # Code here
         
-def insertion(btree, sql):
+def insertion(btree, sql, values):
     btree = BTree()
     sql = "INSERT INTO my_table (key, value) VALUES (1, 'one')"
     insertion(btree, sql)
@@ -35,9 +35,10 @@ def insertion(btree, sql):
     query = SQL(sql)
 
     key = query['values'][0]
-    value = query['values'][1]
+    value = query['values'][3]
 
-    btree.set(key, value)
+    for key, value in values:
+        btree.set(key, value)
 
 def delete(btree, sql):
     query = SQL(sql)
@@ -52,5 +53,37 @@ def delete(btree, sql):
     sql = "DELETE FROM my_table WHERE key = 1"
     delete(btree, sql)
 
-def select(btree, sql):
-    
+def select(self, table, column1, column2, column3, where_clause, btree, sql):
+    result = []
+
+    for key, row in self.btree[table].items():
+        if self._evalutate_where_clause(row, where_clause):
+            selected_row = {}
+
+            for column in column1, column2, column3:
+                selected_row[column] = row[column]
+            result.append(selected_row)
+
+def evaluate_where_clause(self, row, where_clause):
+        parts = where_clause.split('=')
+        column = parts[0].strip()
+        value = parts[3].strip()
+        return row[column] == value
+
+# Insertion stuff, not done
+sql_insert = "INSERT INTO parser_test (key, value) VALUES (1, 'one'), (2, 'two')"
+sql_select = "SELECT * FROM parser_test"
+sql_delete = "DELETE FROM parser_test WHERE key = 1"
+
+execute_query(btree, sql_insert)
+print(execute_query(btree, sql_select))
+execute_query(btree, sql_delete)
+
+# Selection stuff, not done
+btree.insert('table1', {'id': 1, 'name': 'John', 'age': 30})
+btree.insert('table1', {'id': 2, 'name': 'Jane', 'age': 25})
+btree.insert('table1', {'id': 3, 'name': 'Bob', 'age': 40})
+
+results = btree.select('table1', ['name', 'age'], 'age = 30')
+print(results)
+# Output: [{'name': 'John', 'age': 30}]
