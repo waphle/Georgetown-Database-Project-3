@@ -40,6 +40,9 @@ class SQL:
         self.update_values = None
         self.order_by = None
         self.having = None
+        self.PK = None
+        self.FK = None
+        self.FK_table = None
         # print(self.parsed_sql.tokens)
         if self.operation.upper() == 'SELECT':
             for token in self.parsed_sql.tokens:
@@ -148,11 +151,48 @@ class SQL:
             self.type = []
             self.values = []
             self.not_null = []
+            self.PK = []
+            self.FK = []
+            self.FK_table = []
+            p = None
             for token in self.parsed_sql.tokens:
                 if isinstance(token, sqlparse.sql.Parenthesis):
                     f = 0
+                    # print(token.tokens)
                     for sub_token in token.tokens:
-                        if isinstance(sub_token, sqlparse.sql.Identifier):
+                        if sub_token.ttype == sqlparse.tokens.Keyword and sub_token.value.upper() == "FOREIGN":
+                            if f == 1:
+                                self.error = True
+                                return
+                            if f == 2:
+                                self.not_null.append(False)
+                                f = 3
+                            if f == 3:
+                                if len(self.values) < len(self.attributes):
+                                    self.values.append("")
+                                if len(self.PK) < len(self.attributes):
+                                    self.PK.append(False)
+                            while len(self.attributes) > len(self.FK):
+                                self.FK.append(False)
+                                self.FK_table.append(None)
+                            f = -1
+                            p = None
+                        elif f < 0:
+                            if isinstance(sub_token, sqlparse.sql.Parenthesis):
+                                for sub_sub_token in sub_token:
+                                    if isinstance(sub_sub_token, sqlparse.sql.Identifier):
+                                        p = self.attributes.index(sub_sub_token.value)
+                                        self.FK[p] = True
+                            elif isinstance(sub_token, sqlparse.sql.Function):
+                                if p is None:
+                                    self.error = True
+                                    return
+                                for sub_sub_token in sub_token:
+                                    if isinstance(sub_sub_token, sqlparse.sql.Identifier):
+                                        self.FK_table[p] = sub_sub_token.value
+                                    elif isinstance(sub_sub_token, sqlparse.sql.Parenthesis):
+                                        self.FK_table[p] += sub_sub_token.value
+                        elif isinstance(sub_token, sqlparse.sql.Identifier):
                             self.attributes.append(sub_token.value)
                             if f == 1:
                                 self.error = True
@@ -161,7 +201,10 @@ class SQL:
                                 self.not_null.append(False)
                                 f = 3
                             if f == 3:
-                                self.values.append("")
+                                if len(self.values) < len(self.attributes):
+                                    self.values.append("")
+                                if len(self.PK) < len(self.attributes):
+                                    self.PK.append(False)
                             f = 1
                         elif sub_token.ttype == sqlparse.tokens.Name.Builtin or \
                                 isinstance(sub_token, sqlparse.sql.Function):
@@ -178,6 +221,7 @@ class SQL:
                             f = 3
                         elif sub_token.ttype == sqlparse.tokens.Keyword and sub_token.value.upper() == "DEFAULT":
                             default = token.tokens[token.token_index(sub_token) + 2]
+                            self.PK.append(False)
                             if default.is_group:
                                 self.values.append(default.tokens[0].value)
                             else:
@@ -188,9 +232,67 @@ class SQL:
                                 self.error = True
                                 return
                             f = 0
+                        elif sub_token.ttype == sqlparse.tokens.Keyword and sub_token.value.upper() == "PRIMARY":
+                            self.PK.append(True)
+                            self.values.append("")
+                            if f == 2:
+                                self.not_null.append(True)
+                            elif f != 3:
+                                self.error = True
+                                return
+                            f = 0
+                        elif sub_token.ttype == sqlparse.tokens.Keyword and sub_token.value.upper() == "REFERENCES":
+                            while len(self.attributes)-1 > len(self.FK):
+                                self.FK.append(False)
+                                self.FK_table.append(None)
+                            if len(self.attributes) <= len(self.FK) or f == 1:
+                                self.error = True
+                                return
+                            self.PK.append(True)
+                            self.FK.append(True)
+                            self.FK_table.append(None)
+                            if f == 2:
+                                self.not_null.append(True)
+                                f == 3
+                            elif f == 3:
+                                self.values.append("")
+                            f = -1
+                            p = len(self.FK)-1
                         elif isinstance(sub_token, sqlparse.sql.IdentifierList):
+                            # print(sub_token.tokens)
                             for sub_sub_token in sub_token:
-                                if isinstance(sub_sub_token, sqlparse.sql.Identifier):
+                                if sub_sub_token.ttype == sqlparse.tokens.Keyword and sub_sub_token.value.upper() == "FOREIGN":
+                                    if f == 1:
+                                        self.error = True
+                                        return
+                                    if f == 2:
+                                        self.not_null.append(False)
+                                        f = 3
+                                    if f == 3:
+                                        if len(self.values) < len(self.attributes):
+                                            self.values.append("")
+                                        if len(self.PK) < len(self.attributes):
+                                            self.PK.append(False)
+                                    while len(self.attributes) > len(self.FK):
+                                        self.FK.append(False)
+                                        self.FK_table.append(None)
+                                    f = -1
+                                elif f < 0:
+                                    if isinstance(sub_sub_token, sqlparse.sql.Parenthesis):
+                                        for sub_sub_sub_token in sub_sub_token:
+                                            if isinstance(sub_sub_sub_token, sqlparse.sql.Identifier):
+                                                p = self.attributes.index(sub_sub_sub_token.value)
+                                                self.FK[p] = True
+                                    elif isinstance(sub_sub_token, sqlparse.sql.Function):
+                                        if p is None:
+                                            self.error = True
+                                            return
+                                        for sub_sub_sub_token in sub_sub_token:
+                                            if isinstance(sub_sub_sub_token, sqlparse.sql.Identifier):
+                                                self.FK_table[p] = sub_sub_sub_token.value
+                                            elif isinstance(sub_sub_sub_token, sqlparse.sql.Parenthesis):
+                                                self.FK_table[p] += sub_sub_sub_token.value
+                                elif isinstance(sub_sub_token, sqlparse.sql.Identifier):
                                     self.attributes.append(sub_sub_token.value)
                                     if f == 1:
                                         self.error = True
@@ -199,7 +301,10 @@ class SQL:
                                         self.not_null.append(False)
                                         f = 3
                                     if f == 3:
-                                        self.values.append("")
+                                        if len(self.values) < len(self.attributes):
+                                            self.values.append("")
+                                        if len(self.PK) < len(self.attributes):
+                                            self.PK.append(False)
                                     f = 1
                                 elif sub_sub_token.ttype == sqlparse.tokens.Name.Builtin or \
                                         isinstance(sub_sub_token, sqlparse.sql.Function):
@@ -222,12 +327,14 @@ class SQL:
                         self.not_null.append(False)
                         f = 3
                     if f == 3:
-                        self.values.append("")
+                        if len(self.values) < len(self.attributes):
+                            self.values.append("")
+                        if len(self.PK) < len(self.attributes):
+                            self.PK.append(False)
+                    while len(self.attributes) > len(self.FK):
+                        self.FK.append(False)
+                        self.FK_table.append(None)
         elif self.operation.upper() == 'DROP':
             self.table = self.parsed_sql.tokens[4].value
         else:
             self.error = True
-
-
-
-sql = SQL("CREATE TABLE my_table (column1 INT NOT NULL DEFAULT 1, column2 VARCHAR(255), column3 DATE)")
