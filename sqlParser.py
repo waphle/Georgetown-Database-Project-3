@@ -242,7 +242,7 @@ class SQL:
                                 return
                             f = 0
                         elif sub_token.ttype == sqlparse.tokens.Keyword and sub_token.value.upper() == "REFERENCES":
-                            while len(self.attributes)-1 > len(self.FK):
+                            while len(self.attributes) - 1 > len(self.FK):
                                 self.FK.append(False)
                                 self.FK_table.append(None)
                             if len(self.attributes) <= len(self.FK) or f == 1:
@@ -257,7 +257,7 @@ class SQL:
                             elif f == 3:
                                 self.values.append("")
                             f = -1
-                            p = len(self.FK)-1
+                            p = len(self.FK) - 1
                         elif isinstance(sub_token, sqlparse.sql.IdentifierList):
                             # print(sub_token.tokens)
                             for sub_sub_token in sub_token:
@@ -336,5 +336,37 @@ class SQL:
                         self.FK_table.append(None)
         elif self.operation.upper() == 'DROP':
             self.table = self.parsed_sql.tokens[4].value
+        elif self.operation.upper() == 'ALTER':
+            self.table = self.parsed_sql.tokens[4].value
+            if self.parsed_sql.tokens[6].ttype == sqlparse.tokens.Keyword and \
+                    self.parsed_sql.tokens[6].value.upper() == "ADD":
+                if self.parsed_sql.tokens[8].ttype == sqlparse.tokens.Keyword and \
+                        self.parsed_sql.tokens[8].value.upper() == "PRIMARY":
+                    self.PK = []
+                    self.attributes = []
+                    self.attributes.append(self.parsed_sql.tokens[12].tokens[1].value)
+                    self.PK.append(self.parsed_sql.tokens[12].tokens[1].value)
+                elif self.parsed_sql.tokens[8].ttype == sqlparse.tokens.Keyword and \
+                        self.parsed_sql.tokens[8].value.upper() == "FOREIGN":
+                    self.FK = []
+                    self.FK_table = []
+                    self.attributes = []
+                    self.attributes.append(self.parsed_sql.tokens[12].tokens[1].value)
+                    self.FK.append(self.parsed_sql.tokens[12].tokens[1].value)
+                    self.FK_table.append(self.parsed_sql.tokens[16].value)
+                elif self.parsed_sql.tokens[12].ttype == sqlparse.tokens.Keyword and \
+                        self.parsed_sql.tokens[12].value.upper() == "PRIMARY":
+                    self.PK = []
+                    self.attributes = []
+                    self.attributes.append(self.parsed_sql.tokens[16].tokens[1].value)
+                    self.PK.append(self.parsed_sql.tokens[10].value)
+                elif self.parsed_sql.tokens[12].ttype == sqlparse.tokens.Keyword and \
+                        self.parsed_sql.tokens[12].value.upper() == "FOREIGN":
+                    self.FK = []
+                    self.FK_table = []
+                    self.attributes = []
+                    self.attributes.append(self.parsed_sql.tokens[16].tokens[1].value)
+                    self.FK.append(self.parsed_sql.tokens[10].value)
+                    self.FK_table.append(self.parsed_sql.tokens[20].value)
         else:
             self.error = True
