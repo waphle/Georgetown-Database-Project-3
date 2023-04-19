@@ -92,7 +92,6 @@ def agg(node, func):
     else:
         return func(node) + sum([agg(child, func) for child in node.children()])
 
-
 # # Insertion stuff, not done
 # sql_insert = "INSERT INTO parser_test (key, value) VALUES (1, 'one'), (2, 'two')"
 # sql_select = "SELECT * FROM parser_test"
