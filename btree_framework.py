@@ -1,7 +1,5 @@
 from BTrees.OOBTree import OOBTree
-
 from sqlParser import SQL
-
 
 class Table:
     def __init__(self, name, PK) -> None:
@@ -81,7 +79,18 @@ def evaluate_where_clause(self, row, where_clause):
 def node_min(node):
     return min(node)
 
+def node_max(node):
+    return max(node)
 
+def node_sum(node):
+    return sum(node)
+
+def agg(node, func):
+    BTree = OOBTree(3)
+    if node.is_leaf():
+        return func(node)
+    else:
+        return func(node) + sum([agg(child, func) for child in node.children()])
 
 
 # # Insertion stuff, not done
