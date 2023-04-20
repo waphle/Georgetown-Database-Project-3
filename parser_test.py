@@ -15,7 +15,7 @@ class TestSQLParser(unittest.TestCase):
             "AND",
             {"column": "column3", "operator": "=", "value": "'value'"}
         ])
-        self.assertEqual(sql.order_by, "column1 DESC")
+        self.assertEqual(sql.order_by, ["column1 DESC"])
 
     def test_insert_query(self):
         sql = SQL("INSERT INTO my_table (column1, column2) VALUES ('value1', 'value2')")
@@ -28,6 +28,8 @@ class TestSQLParser(unittest.TestCase):
         sql = SQL("UPDATE my_table SET column1 = 'value1' WHERE column2 > 100")
         self.assertEqual(sql.operation, "UPDATE")
         self.assertEqual(sql.table, "my_table")
+        self.assertEqual(sql.update_values, ["'value1'"])
+        self.assertEqual(sql.attributes, ["column1"])
         self.assertEqual(sql.conditions, [{"column": "column2", "operator": ">", "value": "100"}])
 
     def test_delete_query(self):
@@ -40,6 +42,7 @@ class TestSQLParser(unittest.TestCase):
         sql = SQL("SELECT column1, SUM(column2) FROM my_table GROUP BY column1 HAVING SUM(column2) > 100")
         self.assertEqual(sql.operation, "SELECT")
         self.assertEqual(sql.attributes, ["column1", "SUM(column2)"])
+        self.assertEqual(sql.group_by, ["column1"])
         self.assertEqual(sql.table, "my_table")
         self.assertEqual(sql.having, [{'column': 'SUM(column2)', 'operator': '>', 'value': '100'}])
 
