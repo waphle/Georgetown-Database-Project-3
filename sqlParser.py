@@ -169,7 +169,7 @@ class SQL:
                                 f = 3
                             if f == 3:
                                 if len(self.values) < len(self.attributes):
-                                    self.values.append("")
+                                    self.values.append(None)
                                 if len(self.PK) < len(self.attributes):
                                     self.PK.append(False)
                             while len(self.attributes) > len(self.FK):
@@ -177,7 +177,24 @@ class SQL:
                                 self.FK_table.append(None)
                             f = -1
                             p = None
-                        elif f < 0:
+                        elif sub_token.ttype == sqlparse.tokens.Keyword and sub_token.value.upper() == "PRIMARY":
+                            if f == 1:
+                                self.error = True
+                                return
+                            if f == 2:
+                                self.not_null.append(False)
+                                f = 3
+                            if f == 3:
+                                if len(self.values) < len(self.attributes):
+                                    self.values.append(None)
+                                if len(self.PK) < len(self.attributes):
+                                    self.PK.append(False)
+                            while len(self.attributes) > len(self.FK):
+                                self.FK.append(False)
+                                self.FK_table.append(None)
+                            f = -2
+                            p = None
+                        elif f == -1:
                             if isinstance(sub_token, sqlparse.sql.Parenthesis):
                                 for sub_sub_token in sub_token:
                                     if isinstance(sub_sub_token, sqlparse.sql.Identifier):
@@ -192,6 +209,12 @@ class SQL:
                                         self.FK_table[p] = sub_sub_token.value
                                     elif isinstance(sub_sub_token, sqlparse.sql.Parenthesis):
                                         self.FK_table[p] += sub_sub_token.value
+                        elif f == -2:
+                            if isinstance(sub_token, sqlparse.sql.Parenthesis):
+                                for sub_sub_token in sub_token:
+                                    if isinstance(sub_sub_token, sqlparse.sql.Identifier):
+                                        p = self.attributes.index(sub_sub_token.value)
+                                        self.PK[p] = True
                         elif isinstance(sub_token, sqlparse.sql.Identifier):
                             self.attributes.append(sub_token.value)
                             if f == 1:
@@ -202,7 +225,7 @@ class SQL:
                                 f = 3
                             if f == 3:
                                 if len(self.values) < len(self.attributes):
-                                    self.values.append("")
+                                    self.values.append(None)
                                 if len(self.PK) < len(self.attributes):
                                     self.PK.append(False)
                             f = 1
@@ -234,7 +257,7 @@ class SQL:
                             f = 0
                         elif sub_token.ttype == sqlparse.tokens.Keyword and sub_token.value.upper() == "PRIMARY":
                             self.PK.append(True)
-                            self.values.append("")
+                            self.values.append(None)
                             if f == 2:
                                 self.not_null.append(True)
                             elif f != 3:
@@ -255,7 +278,7 @@ class SQL:
                                 self.not_null.append(True)
                                 f == 3
                             elif f == 3:
-                                self.values.append("")
+                                self.values.append(None)
                             f = -1
                             p = len(self.FK) - 1
                         elif isinstance(sub_token, sqlparse.sql.IdentifierList):
@@ -270,14 +293,31 @@ class SQL:
                                         f = 3
                                     if f == 3:
                                         if len(self.values) < len(self.attributes):
-                                            self.values.append("")
+                                            self.values.append(None)
                                         if len(self.PK) < len(self.attributes):
                                             self.PK.append(False)
                                     while len(self.attributes) > len(self.FK):
                                         self.FK.append(False)
                                         self.FK_table.append(None)
                                     f = -1
-                                elif f < 0:
+                                elif sub_sub_token.ttype == sqlparse.tokens.Keyword and sub_sub_token.value.upper() == "PRIMARY":
+                                    if f == 1:
+                                        self.error = True
+                                        return
+                                    if f == 2:
+                                        self.not_null.append(False)
+                                        f = 3
+                                    if f == 3:
+                                        if len(self.values) < len(self.attributes):
+                                            self.values.append(None)
+                                        if len(self.PK) < len(self.attributes):
+                                            self.PK.append(False)
+                                    while len(self.attributes) > len(self.FK):
+                                        self.FK.append(False)
+                                        self.FK_table.append(None)
+                                    f = -2
+                                    p = None
+                                elif f == -1:
                                     if isinstance(sub_sub_token, sqlparse.sql.Parenthesis):
                                         for sub_sub_sub_token in sub_sub_token:
                                             if isinstance(sub_sub_sub_token, sqlparse.sql.Identifier):
@@ -292,6 +332,12 @@ class SQL:
                                                 self.FK_table[p] = sub_sub_sub_token.value
                                             elif isinstance(sub_sub_sub_token, sqlparse.sql.Parenthesis):
                                                 self.FK_table[p] += sub_sub_sub_token.value
+                                elif f == -2:
+                                    if isinstance(sub_sub_token, sqlparse.sql.Parenthesis):
+                                        for sub_sub_sub_token in sub_sub_token:
+                                            if isinstance(sub_sub_sub_token, sqlparse.sql.Identifier):
+                                                p = self.attributes.index(sub_sub_sub_token.value)
+                                                self.PK[p] = True
                                 elif isinstance(sub_sub_token, sqlparse.sql.Identifier):
                                     self.attributes.append(sub_sub_token.value)
                                     if f == 1:
@@ -302,7 +348,7 @@ class SQL:
                                         f = 3
                                     if f == 3:
                                         if len(self.values) < len(self.attributes):
-                                            self.values.append("")
+                                            self.values.append(None)
                                         if len(self.PK) < len(self.attributes):
                                             self.PK.append(False)
                                     f = 1
@@ -328,7 +374,7 @@ class SQL:
                         f = 3
                     if f == 3:
                         if len(self.values) < len(self.attributes):
-                            self.values.append("")
+                            self.values.append(None)
                         if len(self.PK) < len(self.attributes):
                             self.PK.append(False)
                     while len(self.attributes) > len(self.FK):

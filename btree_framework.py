@@ -1,15 +1,28 @@
 from BTrees.OOBTree import OOBTree
 from sqlParser import SQL
 
-class Table:
-    def __init__(self, name, PK) -> None:
-        self.tree = OOBTree(2)
-        self.PK = PK
-        self.name = name
+# list saved in main memory.
+databases = {}
 
-    def __init__(self, name) -> None:
-        self.tree = OOBTree(2)
-        self.name = name
+
+class Table:
+    def __init__(self, sql) -> None:
+        self.tree = OOBTree()
+        self.attribute = sql.attributes
+        self.type = sql.type
+        self.PK = []
+        if True in sql.PK:
+            i = 0
+            for pk in sql.PK:
+                if pk:
+                    self.PK.append(sql.attributes[i])
+                i += 1
+        if sql.FK:
+            self.FK = sql.FK
+        if sql.not_null:
+            self.not_null = sql.not_null
+        if sql.values:
+            self.default = sql.values
 
     def insert_row(self, row):
         key = ""
@@ -26,21 +39,48 @@ class Table:
 
 def operation(sql):
     if sql.operation == "CREATE":
-        test = sql  # Code here
-
-
-def insertion(btree, sql, values):
-    btree = OOBTree(2)
-    sql = "INSERT INTO my_table (key, value) VALUES (1, 'one')"
-    insertion(btree, sql)
-
-    query = SQL(sql)
-
-    key = query['values'][0]
-    value = query['values'][3]
-
-    for key, value in values:
-        btree.set(key, value)
+        databases[sql.table] = Table(sql)
+    elif sql.operation == "INSERT":
+        if databases.get(sql.table) is not None:
+            database = databases.get(sql.table)
+            # check attributes
+            for col in sql.attributes:
+                if col not in database.attribute:
+                    print("Error, wrong column!")
+                    return
+            for col in database.attribute:
+                if col not in sql.attributes:
+                    if database.not_null[database.attribute.index(col)]:
+                        print("Error, not null column not given value!")
+                        return
+            if not database.PK:
+                print("Error, define the primary key!")
+            data = {}
+            for col in database.attribute:
+                if col in sql.attributes:
+                    if database.type[database.attribute.index(col)] == "INT":
+                        data[col] = int(sql.insert_values[sql.attributes.index(col)])
+                    else:
+                        data[col] = sql.insert_values[sql.attributes.index(col)]
+                else:
+                    if database.type[database.attribute.index(col)] == "INT":
+                        data[col] = int(database.default[database.attribute.index(col)])
+                    else:
+                        data[col] = database.default[database.attribute.index(col)]
+            if len(database.PK) == 1:
+                if database.type[sql.attributes.index(database.PK[0])] == "INT":
+                    database.tree.insert(int(data[database.PK[0]]), data)
+                else:
+                    database.tree.insert(data[database.PK[0]], data)
+            else:
+                key = ""
+                for pk in database.PK:
+                    key += ":" + data[pk]
+                database.tree.insert(key, data)
+            databases[sql.table] = database
+        else:
+            print("Table not exist!")
+            return
 
 
 def delete(btree, sql):
@@ -75,15 +115,19 @@ def evaluate_where_clause(self, row, where_clause):
     value = parts[3].strip()
     return row[column] == value
 
+
 # Aggregator operator
 def node_min(node):
     return min(node)
 
+
 def node_max(node):
     return max(node)
 
+
 def node_sum(node):
     return sum(node)
+
 
 def agg(node, func):
     BTree = OOBTree(3)
