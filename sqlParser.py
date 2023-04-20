@@ -39,6 +39,7 @@ class SQL:
         self.insert_values = None
         self.update_values = None
         self.order_by = None
+        self.group_by = None
         self.having = None
         self.PK = None
         self.FK = None
@@ -63,14 +64,24 @@ class SQL:
                         self.parsed_sql.tokens[self.parsed_sql.token_index(token) + 2].get_real_name()
                 elif isinstance(token, sqlparse.sql.Where):
                     self.conditions = parse_conditions(self, token)
+                elif token.ttype == sqlparse.tokens.Keyword and token.value.upper() == "GROUP BY":
+                    group_token = self.parsed_sql.tokens[self.parsed_sql.token_index(token) + 2]
+                    self.group_by = []
+                    if isinstance(group_token, (sqlparse.sql.Identifier, sqlparse.sql.Function)):
+                        self.group_by.append(group_token.value)
+                    elif group_token.is_group:
+                        for sub_token in group_token.tokens:
+                            if isinstance(sub_token, (sqlparse.sql.Identifier, sqlparse.sql.Function)):
+                                self.group_by.append(sub_token.value)
                 elif token.ttype == sqlparse.tokens.Keyword and token.value.upper() == "ORDER BY":
                     order_token = self.parsed_sql.tokens[self.parsed_sql.token_index(token) + 2]
+                    self.order_by = []
                     if isinstance(order_token, (sqlparse.sql.Identifier, sqlparse.sql.Function)):
-                        self.order_by = order_token.value
+                        self.order_by.append(order_token.value)
                     elif order_token.is_group:
                         for sub_token in order_token.tokens:
                             if isinstance(sub_token, (sqlparse.sql.Identifier, sqlparse.sql.Function)):
-                                self.order_by = sub_token.value
+                                self.order_by.append(order_token.value)
                 elif token.ttype == sqlparse.tokens.Keyword and token.value.upper() == "HAVING":
                     self.having = []
                     p = self.parsed_sql.token_index(token) + 2
@@ -123,19 +134,20 @@ class SQL:
                                 sub_token.ttype != sqlparse.tokens.Punctuation:
                             self.insert_values.append(sub_token.value)
         elif self.operation.upper() == 'UPDATE':
+            self.attributes = []
+            self.update_values = []
             for token in self.parsed_sql.tokens:
                 if token.ttype == sqlparse.tokens.Keyword.DML and token.value.upper() == "UPDATE":
                     self.table = \
                         self.parsed_sql.tokens[self.parsed_sql.token_index(token) + 2].get_real_name()
-                elif token.ttype == sqlparse.tokens.Keyword and token.value.upper() == "SET":
-                    self.update_values = []
-                    update_token = self.parsed_sql.tokens[self.parsed_sql.token_index(token) + 2]
-                    if isinstance(update_token, sqlparse.sql.Identifier):
-                        self.update_values.append(update_token.value)
-                    elif update_token.is_group:
-                        for sub_token in update_token.tokens:
-                            if isinstance(sub_token, sqlparse.sql.Comparison):
-                                self.update_values.append(sub_token.value)
+                elif isinstance(token, sqlparse.sql.Comparison):
+                    self.attributes = [token.tokens[0].value]
+                    self.update_values = [token.tokens[4].value]
+                elif isinstance(token, sqlparse.sql.IdentifierList):
+                    for sub_token in token.tokens:
+                        if isinstance(sub_token, sqlparse.sql.Comparison):
+                            self.attributes.append(sub_token.tokens[0].value)
+                            self.update_values.append(sub_token.tokens[4].value)
                 elif isinstance(token, sqlparse.sql.Where):
                     self.conditions = parse_conditions(self, token)
         elif self.operation.upper() == 'DELETE':

@@ -9,3 +9,15 @@ sql = "INSERT INTO users (id, name, email) VALUES (2, 'Jane Smith', 'jane.smith@
 btree_framework.operation(SQL(sql))
 print(btree_framework.databases["users"].tree.get(1))
 print(btree_framework.databases["users"].tree.get(2))
+sql = "UPDATE users SET email = 'new_email@example.com' WHERE id = 1;"
+btree_framework.operation(SQL(sql))
+print(btree_framework.databases["users"].tree.get(1))
+print(btree_framework.databases["users"].tree.get(2))
+sql = "UPDATE users SET email = 'no_email@example.com';"
+btree_framework.operation(SQL(sql))
+print(btree_framework.databases["users"].tree.get(1))
+print(btree_framework.databases["users"].tree.get(2))
+sql = "UPDATE users SET name = 'james' WHERE email = 'no_email@example.com' AND id = 1 OR email = 'no_email@example.com';"
+btree_framework.operation(SQL(sql))
+print(btree_framework.databases["users"].tree.get(1))
+print(btree_framework.databases["users"].tree.get(2))
