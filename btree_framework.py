@@ -136,7 +136,7 @@ def agg(node, func):
     else:
         return func(node) + sum([agg(child, func) for child in node.children()])
 
-# # Insertion stuff, not done
+# # Insertion stuff, not done, probably not needed
 # sql_insert = "INSERT INTO parser_test (key, value) VALUES (1, 'one'), (2, 'two')"
 # sql_select = "SELECT * FROM parser_test"
 # sql_delete = "DELETE FROM parser_test WHERE key = 1"
@@ -145,7 +145,7 @@ def agg(node, func):
 # print(execute_query(btree, sql_select))
 # execute_query(btree, sql_delete)
 
-# # Selection stuff, not done
+# # Selection stuff, not done, probably not needed
 # btree.insert('table1', {'id': 1, 'name': 'John', 'age': 30})
 # btree.insert('table1', {'id': 2, 'name': 'Jane', 'age': 25})
 # btree.insert('table1', {'id': 3, 'name': 'Bob', 'age': 40})
