@@ -78,7 +78,7 @@ class TestSQLParser(unittest.TestCase):
         self.assertEqual(sql.attributes, ["column1", "column2", "column3"])
         self.assertEqual(sql.type, ["INT", "CHAR(10)", "DATE"])
         self.assertEqual(sql.not_null, [True, False, False])
-        self.assertEqual(sql.values, ["1", "", ""])
+        self.assertEqual(sql.values, ["1", None, None])
 
     def test_drop_table_query(self):
         sql = SQL("DROP TABLE my_table")
