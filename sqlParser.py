@@ -57,7 +57,8 @@ class SQL:
                         self.attributes.append(select_token.value)
                     elif select_token.is_group:
                         for sub_token in select_token.tokens:
-                            if isinstance(sub_token, (sqlparse.sql.Identifier, sqlparse.sql.Function)):
+                            if isinstance(sub_token, (sqlparse.sql.Identifier, sqlparse.sql.Function)) or\
+                                    sub_token.ttype is sqlparse.tokens.Wildcard:
                                 self.attributes.append(sub_token.value)
                 elif token.ttype == sqlparse.tokens.Keyword and token.value.upper() == "FROM":
                     self.table = \
@@ -127,12 +128,16 @@ class SQL:
                                                 self.attributes.append(sub_sub_sub_token.value)
                 elif isinstance(token, sqlparse.sql.Values):
                     self.insert_values = []
-                    sub_token = token.tokens[2]
-                    value_token = sub_token.tokens[1]
-                    for sub_token in value_token.tokens:
-                        if sub_token.ttype != sqlparse.tokens.Whitespace and \
-                                sub_token.ttype != sqlparse.tokens.Punctuation:
-                            self.insert_values.append(sub_token.value)
+                    for sub_token in token.tokens:
+                        if isinstance(sub_token, sqlparse.sql.Parenthesis):
+                            data = []
+                            for sub_sub_token in sub_token.tokens:
+                                if isinstance(sub_sub_token, sqlparse.sql.IdentifierList):
+                                    for sub_sub_sub_token in sub_sub_token:
+                                        if sub_sub_sub_token.ttype != sqlparse.tokens.Whitespace and \
+                                                sub_sub_sub_token.ttype != sqlparse.tokens.Punctuation:
+                                            data.append(sub_sub_sub_token.value)
+                            self.insert_values.append(data)
         elif self.operation.upper() == 'UPDATE':
             self.attributes = []
             self.update_values = []
