@@ -22,7 +22,7 @@ class TestSQLParser(unittest.TestCase):
         self.assertEqual(sql.operation, "INSERT")
         self.assertEqual(sql.table, "my_table")
         self.assertEqual(sql.attributes, ['column1', 'column2'])
-        self.assertEqual(sql.insert_values, ["'value1'", "'value2'"])
+        self.assertEqual(sql.insert_values, [["'value1'", "'value2'"]])
 
     def test_update_query(self):
         sql = SQL("UPDATE my_table SET column1 = 'value1' WHERE column2 > 100")
