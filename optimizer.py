@@ -8,15 +8,14 @@ class Condition:
         self.sqlParser = ""
 
     def __repr__(self, sqlParser):
-        return f"{self.column} {self.operator} {self.value}"
+        return f"{self.column} {self.operator} {self.value} {self.sqlParser}"
 
-
+# Incomplete. Needs more RBO stuff
 def RBO(conditions, sqlParser):
     """
     Optimize the order of conditions based on a predefined set of rules.
     Args:
         conditions (list): List of Condition objects.
-
     Returns:
         list: Ordered list of Condition objects.
     """
@@ -34,7 +33,6 @@ def RBO(conditions, sqlParser):
             return 3
 
     return sorted(conditions, key=sort_key)
-
 
 # Example usage
 conditions = [
