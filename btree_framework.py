@@ -1,5 +1,4 @@
 from BTrees.OOBTree import OOBTree
-from sqlParser import SQL
 
 # list saved in main memory.
 databases = {}
@@ -152,6 +151,11 @@ def operation(sql):
                     check_list.append(col[:-4])
                 else:
                     check_list.append(col)
+        if sql.group_by is not None:
+            for col in sql.group_by:
+                if col not in database.attribute:
+                    print("Error, wrong column name in group by!")
+                    return
         for col in check_list:
             if col == "*":
                 continue
@@ -171,29 +175,89 @@ def operation(sql):
             result = result_from_conditions(sql.conditions, database)
         else:
             result = database.tree
-        if sql.group_by is not None:
-            # todo
-            print(111)
-        else:
-            keys = []
-            orders = []
 
-            if sql.order_by is not None:
-                for col in sql.order_by:
-                    if col[-5:] == " DESC":
-                        keys.append(col[:-5])
-                        orders.append(-1)
-                    elif col[-4:] == " ASC":
-                        keys.append(col[:-4])
-                        orders.append(1)
-                    else:
-                        keys.append(col)
-                        orders.append(1)
-            else:
-                for col in database.PK:
+        keys = []
+        orders = []
+
+        if sql.order_by is not None:
+            for col in sql.order_by:
+                if col[-5:] == " DESC":
+                    keys.append(col[:-5])
+                    orders.append(-1)
+                elif col[-4:] == " ASC":
+                    keys.append(col[:-4])
+                    orders.append(1)
+                else:
                     keys.append(col)
                     orders.append(1)
+        else:
+            for col in database.PK:
+                keys.append(col)
+                orders.append(1)
 
+        if sql.group_by is not None:
+            grouped_data = {}
+            for _, data in result.items():
+                key = tuple(data[col] for col in sql.group_by)
+                if key not in grouped_data:
+                    grouped_data[key] = []
+                grouped_data[key].append(data)
+            output = []
+            for key, group in grouped_data.items():
+                new_data = dict(zip(sql.group_by, key))
+                f = 0
+                for col in sql.attributes:
+                    if col in key:
+                        continue
+                    elif col[:4].upper() == "SUM(":
+                        if f == -1:
+                            print("Error, can't group by")
+                            return
+                        f = 1
+                        new_col = col[4:-1]
+                        new_data[col] = sum(d[new_col] for d in list(group))
+                    elif col[:4].upper() == "AVG(":
+                        if f == -1:
+                            print("Error, can't group by")
+                            return
+                        f = 1
+                        new_col = col[4:-1]
+                        new_data[col] = float(sum(d[new_col] for d in list(group)) / len(group))
+                    elif col[:4].upper() == "MIN(":
+                        if f == -1:
+                            print("Error, can't group by")
+                            return
+                        f = 1
+                        new_col = col[4:-1]
+                        new_data[col] = min(group, key=lambda d: d[new_col])[new_col]
+                    elif col[:4].upper() == "MAX(":
+                        if f == -1:
+                            print("Error, can't group by")
+                            return
+                        f = 1
+                        new_col = col[4:-1]
+                        new_data[col] = max(group, key=lambda d: d[new_col])[new_col]
+                    elif col[:6].upper() == "COUNT(":
+                        if f == -1:
+                            print("Error, can't group by")
+                            return
+                        f = 1
+                        new_data[col] = len(result)
+                    elif col == "*":
+                        if f == 1:
+                            print("Error, can't group by")
+                            return
+                        f = -1
+                        for sub_col in database.attribute:
+                            new_data[sub_col] = data[sub_col]
+                    else:
+                        if f == 1:
+                            print("Error, can't group by")
+                            return
+                        f = -1
+                        new_data[col] = data[col]
+                output.append(new_data)
+        else:
             output = []
             if sql.attributes == ["*"]:
                 for _, data in result.items():
@@ -225,8 +289,8 @@ def operation(sql):
                     output.append(new_data)
                 output = sorted(output, key=lambda x: tuple(orders[k] * x[c] for k, c in enumerate(keys)))
 
-            for out in output:
-                print(out)
+        for out in output:
+            print(out)
 
 
 def result_from_conditions(conditions, database):
@@ -296,61 +360,3 @@ def and_condition(result, data, pk, condition):
     elif condition["operator"] == "<=":
         if data[condition["column"]] > condition["value"]:
             del result[pk]
-
-
-def select(self, table, column1, column2, column3, where_clause, btree, sql):
-    result = []
-
-    for key, row in self.btree[table].items():
-        if self._evalutate_where_clause(row, where_clause):
-            selected_row = {}
-
-            for column in column1, column2, column3:
-                selected_row[column] = row[column]
-            result.append(selected_row)
-
-
-def evaluate_where_clause(self, row, where_clause):
-    parts = where_clause.split('=')
-    column = parts[0].strip()
-    value = parts[3].strip()
-    return row[column] == value
-
-
-# Aggregator operator
-def node_min(node):
-    return min(node)
-
-
-def node_max(node):
-    return max(node)
-
-
-def node_sum(node):
-    return sum(node)
-
-
-def aggregate(node, func):
-    btree = OOBTree(2)
-    if node.is_leaf(btree):
-        return func(node)
-    else:
-        return func(node) + sum([aggregate(child, func) for child in node.children()])
-
-# Grouping operator (incomplete)
-def grouping(sqlParser):
-    btree = OOBTree(2)
-
-    for sql_val in sqlParser:
-        column = sql_val["column"]
-        value = sql_val["value"]
-        if column not in btree:
-            btree[column] = OOBTree()
-        btree[column].add(value)
-
-    # Group the SQL values by column
-    groups = []
-    for column, values in btree.items():
-        groups[column] = list(values)
-        
-    return groups

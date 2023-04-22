@@ -50,3 +50,27 @@ print("------------------------")
 
 sql = "SELECT *, AVG(grade) FROM example_table ORDER BY grade;"
 btree_framework.operation(SQL(sql))
+print("------------------------")
+
+sql = "INSERT INTO example_table (id, grade) VALUES (6, 10), (7, 20), (8, 15), (9, 5), (10, 30);"
+btree_framework.operation(SQL(sql))
+
+print("------------------------")
+sql = "SELECT SUM(id) FROM example_table GROUP BY grade;"
+btree_framework.operation(SQL(sql))
+
+print("------------------------")
+sql = "CREATE TABLE class_grade (id INT, grade INT, class_no INT);"
+btree_framework.operation(SQL(sql))
+sql = "ALTER TABLE class_grade ADD PRIMARY KEY (id);"
+btree_framework.operation(SQL(sql))
+sql = "INSERT INTO class_grade (id, grade, class_no) VALUES (1, 10, 1), (2, 20, 1), (3, 15, 1), (4, 5, 2), (5, 30, 2);"
+btree_framework.operation(SQL(sql))
+print("------------------------")
+
+sql = "SELECT * FROM class_grade;"
+btree_framework.operation(SQL(sql))
+
+print("------------------------")
+sql = "SELECT AVG(grade) FROM class_grade GROUP BY class_no;"
+btree_framework.operation(SQL(sql))
