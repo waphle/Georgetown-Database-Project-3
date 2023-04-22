@@ -8,7 +8,6 @@ from BTrees.OOBTree import OOBTree
 # list saved in main memory.
 databases = {}
 
-
 class Table:
     def __init__(self, sql) -> None:
         self.tree = OOBTree()
