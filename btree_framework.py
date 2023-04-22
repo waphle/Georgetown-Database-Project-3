@@ -208,8 +208,11 @@ def operation(sql):
                     grouped_data[key] = []
                 grouped_data[key].append(data)
             output = []
+            output_type = []
             for key, group in grouped_data.items():
                 new_data = dict(zip(sql.group_by, key))
+                for col in sql.group_by:
+                    output_type.append(database.type[database.attribute.index(col)])
                 f = 0
                 for col in sql.attributes:
                     if col in key:
@@ -247,23 +250,29 @@ def operation(sql):
                             print("Error, can't group by")
                             return
                         f = 1
-                        new_data[col] = len(result)
+                        new_col = col[6:-1]
+                        new_data[col] = len(group)
                     elif col == "*":
                         if f == 1:
                             print("Error, can't group by")
                             return
                         f = -1
                         for sub_col in database.attribute:
-                            new_data[sub_col] = data[sub_col]
+                            new_data[sub_col] = group[0][sub_col]
+                            output_type.append(database.type[database.attribute.index(sub_col)])
+                        continue
                     else:
                         if f == 1:
                             print("Error, can't group by")
                             return
                         f = -1
-                        new_data[col] = data[col]
+                        new_col = col
+                        new_data[col] = group[col]
+                    output_type.append(database.type[database.attribute.index(new_col)])
                 output.append(new_data)
         else:
             output = []
+            output_type = []
             if sql.attributes == ["*"]:
                 for _, data in result.items():
                     output.append(data)
@@ -275,6 +284,8 @@ def operation(sql):
                         if col == "*":
                             for sub_col in database.attribute:
                                 new_data[sub_col] = data[sub_col]
+                                output_type.append(database.type[database.attribute.index(sub_col)])
+                            continue
                         elif col[:4].upper() == "SUM(":
                             new_col = col[4:-1]
                             new_data[col] = sum(d[new_col] for d in list(result.values()))
@@ -288,14 +299,152 @@ def operation(sql):
                             new_col = col[4:-1]
                             new_data[col] = max(result.values(), key=lambda d: d[new_col])[new_col]
                         elif col[:6].upper() == "COUNT(":
+                            new_col = col[6:-1]
                             new_data[col] = len(result)
                         else:
+                            new_col = col
                             new_data[col] = data[col]
+                        output_type.append(database.type[database.attribute.index(new_col)])
                     output.append(new_data)
                 output = sorted(output, key=lambda x: tuple(orders[k] * x[c] for k, c in enumerate(keys)))
 
-        for out in output:
+        new_output = []
+
+        if sql.having is not None and output != []:
+            f = 0
+            for condition in sql.having:
+                new_condition = condition.copy()
+                if condition != "AND" and condition != "OR":
+                    if condition["column"] not in output[0].keys():
+                        print("Error, wrong column name!")
+                    i = 0
+                    for key in output[0].keys():
+                        if key == condition["column"]:
+                            break
+                        i += 1
+                    if new_condition["value"] in database.attribute:
+                        new_condition["column2"] = new_condition["value"]
+                        new_condition["value"] = None
+                    elif output_type[i] == "INT":
+                        new_condition["value"] = int(condition["value"])
+                    else:
+                        new_condition["value"] = condition["value"][1:-1]
+                if condition == "AND":
+                    f = 1
+                elif condition == "OR":
+                    f = 0
+                elif f == 0:
+                    for data in output:
+                        or_having(new_output, data, new_condition)
+                elif f == 1:
+                    temp = new_output.copy()
+                    for data in new_output:
+                        or_having(temp, data, new_condition)
+                    new_output = temp.copy()
+        else:
+            new_output = output.copy()
+        for out in new_output:
             print(out)
+
+    elif sql.operation == "JOIN":
+        database1 = databases.get(sql.table)
+        table1 = sql.table
+        database2 = databases.get(sql.joint)
+        table2 = sql.joint
+        if database1 is None or database2 is None:
+            print("No such database!")
+            return
+
+        new_attribute = []
+        for attribute in sql.attributes:
+            if attribute == '*':
+                for col in database1.attribute:
+                    new_attribute.append(table1 + '.' + col)
+                for col in database2.attribute:
+                    new_attribute.append(table2 + '.' + col)
+                continue
+            if "." in attribute:
+                parts = attribute.split(".")
+                if parts[0] == table1 and parts[1] in database1.attribute:
+                    continue
+                elif parts[0] == table2 and parts[1] in database2.attribute:
+                    continue
+                else:
+                    print("Wrong column name!")
+                    return
+            else:
+                print("Wrong column name! Which table you mean?")
+                return
+
+        result = []
+        result_type = []
+        for _, data1 in database1.tree.items():
+            new_data1 = {}
+            for key, value in data1.items():
+                new_data1[table1 + '.' + key] = value
+                result_type.append(database1.type[database1.attribute.index(key)])
+            for _, data2 in database2.tree.items():
+                new_data2 = {}
+                for key, value in data2.items():
+                    new_data2[table2 + '.' + key] = value
+                    result_type.append(database2.type[database2.attribute.index(key)])
+                new_data = {}
+                new_data.update(new_data1)
+                new_data.update(new_data2)
+                result.append(new_data)
+
+        output = result_from_on(sql.on, result, result_type, new_attribute)
+
+        new_output = []
+        for data in output:
+            new_data = {}
+            for attribute in sql.attributes:
+                if attribute == '*':
+                    new_data = data.copy()
+                    break
+                new_data[attribute] = data[attribute]
+            new_output.append(new_data)
+
+        for data in output:
+            print(data)
+
+
+def result_from_on(conditions, result, result_type, attributes):
+    output = []
+    if conditions is not None and result != []:
+        f = 0
+        for condition in conditions:
+            new_condition = condition.copy()
+            if condition != "AND" and condition != "OR":
+                if condition["column"] not in result[0].keys():
+                    print("Error, wrong column name!")
+                i = 0
+                for key in result[0].keys():
+                    if key == condition["column"]:
+                        break
+                    i += 1
+                if new_condition["value"] in attributes:
+                    new_condition["column2"] = new_condition["value"]
+                    new_condition["value"] = None
+                elif result_type[i] == "INT":
+                    new_condition["value"] = int(condition["value"])
+                else:
+                    new_condition["value"] = condition["value"][1:-1]
+            if condition == "AND":
+                f = 1
+            elif condition == "OR":
+                f = 0
+            elif f == 0:
+                for data in result:
+                    or_having(output, data, new_condition)
+            elif f == 1:
+                temp = output.copy()
+                for data in output:
+                    or_having(temp, data, new_condition)
+                output = temp.copy()
+    else:
+        output = result.copy()
+    return output
 
 
 def result_from_conditions(conditions, database):
@@ -307,7 +456,10 @@ def result_from_conditions(conditions, database):
             if condition["column"] not in database.attribute:
                 print("Error, wrong column name!")
             i = database.attribute.index(condition["column"])
-            if database.type[i] == "INT":
+            if new_condition["value"] in database.attribute:
+                new_condition["column2"] = new_condition["value"]
+                new_condition["value"] = None
+            elif database.type[i] == "INT":
                 new_condition["value"] = int(condition["value"])
             else:
                 new_condition["value"] = condition["value"][1:-1]
@@ -328,40 +480,161 @@ def result_from_conditions(conditions, database):
 
 def or_condition(result, data, pk, condition):
     if condition["operator"] == "=":
-        if data[condition["column"]] == condition["value"]:
-            if result.get(pk) is None:
-                result[pk] = data
+        if condition["value"] is not None:
+            if data[condition["column"]] == condition["value"]:
+                if result.get(pk) is None:
+                    result[pk] = data
+        else:
+            if data[condition["column"]] == data[condition["column2"]]:
+                if result.get(pk) is None:
+                    result[pk] = data
     elif condition["operator"] == ">":
-        if data[condition["column"]] > condition["value"]:
-            if result.get(pk) is None:
-                result[pk] = data
+        if condition["value"] is not None:
+            if data[condition["column"]] > condition["value"]:
+                if result.get(pk) is None:
+                    result[pk] = data
+        else:
+            if data[condition["column"]] > data[condition["column2"]]:
+                if result.get(pk) is None:
+                    result[pk] = data
     elif condition["operator"] == "<":
-        if data[condition["column"]] < condition["value"]:
-            if result.get(pk) is None:
-                result[pk] = data
+        if condition["value"] is not None:
+            if data[condition["column"]] < condition["value"]:
+                if result.get(pk) is None:
+                    result[pk] = data
+        else:
+            if data[condition["column"]] < data[condition["column2"]]:
+                if result.get(pk) is None:
+                    result[pk] = data
     elif condition["operator"] == ">=":
-        if data[condition["column"]] >= condition["value"]:
-            if result.get(pk) is None:
-                result[pk] = data
+        if condition["value"] is not None:
+            if data[condition["column"]] >= condition["value"]:
+                if result.get(pk) is None:
+                    result[pk] = data
+        else:
+            if data[condition["column"]] >= data[condition["column2"]]:
+                if result.get(pk) is None:
+                    result[pk] = data
     elif condition["operator"] == "<=":
-        if data[condition["column"]] <= condition["value"]:
-            if result.get(pk) is None:
-                result[pk] = data
+        if condition["value"] is not None:
+            if data[condition["column"]] <= condition["value"]:
+                if result.get(pk) is None:
+                    result[pk] = data
+        else:
+            if data[condition["column"]] <= data[condition["column2"]]:
+                if result.get(pk) is None:
+                    result[pk] = data
 
 
 def and_condition(result, data, pk, condition):
     if condition["operator"] == "=":
-        if data[condition["column"]] != condition["value"]:
-            del result[pk]
+        if condition["value"] is not None:
+            if data[condition["column"]] != condition["value"]:
+                del result[pk]
+        else:
+            if data[condition["column"]] != data[condition["column2"]]:
+                del result[pk]
     elif condition["operator"] == ">":
-        if data[condition["column"]] <= condition["value"]:
-            del result[pk]
+        if condition["value"] is not None:
+            if data[condition["column"]] <= condition["value"]:
+                del result[pk]
+        else:
+            if data[condition["column"]] <= data[condition["column2"]]:
+                del result[pk]
     elif condition["operator"] == "<":
-        if data[condition["column"]] < condition["value"]:
-            del result[pk]
+        if condition["value"] is not None:
+            if data[condition["column"]] >= condition["value"]:
+                del result[pk]
+        else:
+            if data[condition["column"]] >= data[condition["column2"]]:
+                del result[pk]
     elif condition["operator"] == ">=":
-        if data[condition["column"]] < condition["value"]:
-            del result[pk]
+        if condition["value"] is not None:
+            if data[condition["column"]] < condition["value"]:
+                del result[pk]
+        else:
+            if data[condition["column"]] < data[condition["column2"]]:
+                del result[pk]
     elif condition["operator"] == "<=":
-        if data[condition["column"]] > condition["value"]:
-            del result[pk]
+        if condition["value"] is not None:
+            if data[condition["column"]] > condition["value"]:
+                del result[pk]
+        else:
+            if data[condition["column"]] > data[condition["column2"]]:
+                del result[pk]
+
+
+def or_having(output, data, condition):
+    if condition["operator"] == "=":
+        if condition["value"] is not None:
+            if data[condition["column"]] == condition["value"]:
+                output.append(data)
+        else:
+            if data[condition["column"]] == data[condition["column2"]]:
+                output.append(data)
+    elif condition["operator"] == ">":
+        if condition["value"] is not None:
+            if data[condition["column"]] > condition["value"]:
+                output.append(data)
+        else:
+            if data[condition["column"]] > data[condition["column2"]]:
+                output.append(data)
+    elif condition["operator"] == "<":
+        if condition["value"] is not None:
+            if data[condition["column"]] < condition["value"]:
+                output.append(data)
+        else:
+            if data[condition["column"]] < data[condition["column2"]]:
+                output.append(data)
+    elif condition["operator"] == ">=":
+        if condition["value"] is not None:
+            if data[condition["column"]] >= condition["value"]:
+                output.append(data)
+        else:
+            if data[condition["column"]] >= data[condition["column2"]]:
+                output.append(data)
+    elif condition["operator"] == "<=":
+        if condition["value"] is not None:
+            if data[condition["column"]] <= condition["value"]:
+                output.append(data)
+        else:
+            if data[condition["column"]] <= data[condition["column2"]]:
+                output.append(data)
+
+
+def and_having(output, data, condition):
+    if condition["operator"] == "=":
+        if condition["value"] is not None:
+            if data[condition["column"]] != condition["value"]:
+                del output[data]
+        else:
+            if data[condition["column"]] != data[condition["column2"]]:
+                del output[data]
+    elif condition["operator"] == ">":
+        if condition["value"] is not None:
+            if data[condition["column"]] <= condition["value"]:
+                del output[data]
+        else:
+            if data[condition["column"]] <= data[condition["column2"]]:
+                del output[data]
+    elif condition["operator"] == "<":
+        if condition["value"] is not None:
+            if data[condition["column"]] >= condition["value"]:
+                del output[data]
+        else:
+            if data[condition["column"]] >= data[condition["column2"]]:
+                del output[data]
+    elif condition["operator"] == ">=":
+        if condition["value"] is not None:
+            if data[condition["column"]] < condition["value"]:
+                del output[data]
+        else:
+            if data[condition["column"]] < data[condition["column2"]]:
+                del output[data]
+    elif condition["operator"] == "<=":
+        if condition["value"] is not None:
+            if data[condition["column"]] > condition["value"]:
+                del output[data]
+        else:
+            if data[condition["column"]] > data[condition["column2"]]:
+                del output[data]
