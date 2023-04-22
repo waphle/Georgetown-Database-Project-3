@@ -330,23 +330,27 @@ def node_sum(node):
     return sum(node)
 
 
-def agg(node, func):
-    BTree = OOBTree(3)
-    if node.is_leaf():
+def aggregate(node, func):
+    btree = OOBTree(2)
+    if node.is_leaf(btree):
         return func(node)
     else:
-        return func(node) + sum([agg(child, func) for child in node.children()])
+        return func(node) + sum([aggregate(child, func) for child in node.children()])
 
-# # Insertion stuff, not done, probably not needed
-# sql_insert = "INSERT INTO parser_test (key, value) VALUES (1, 'one'), (2, 'two')"
-# sql_select = "SELECT * FROM parser_test"
-# sql_delete = "DELETE FROM parser_test WHERE key = 1"
+# Grouping operator (incomplete)
+def grouping(sqlParser):
+    btree = OOBTree(2)
 
-# execute_query(btree, sql_insert)
-# print(execute_query(btree, sql_select))
-# execute_query(btree, sql_delete)
+    for sql_val in sqlParser:
+        column = sql_val["column"]
+        value = sql_val["value"]
+        if column not in btree:
+            btree[column] = OOBTree()
+        btree[column].add(value)
 
-# # Selection stuff, not done, probably not needed
-# btree.insert('table1', {'id': 1, 'name': 'John', 'age': 30})
-# btree.insert('table1', {'id': 2, 'name': 'Jane', 'age': 25})
-# btree.insert('table1', {'id': 3, 'name': 'Bob', 'age': 40})
+    # Group the SQL values by column
+    groups = []
+    for column, values in btree.items():
+        groups[column] = list(values)
+        
+    return groups
