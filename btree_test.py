@@ -74,3 +74,6 @@ btree_framework.operation(SQL(sql))
 print("------------------------")
 sql = "SELECT AVG(grade) FROM class_grade GROUP BY class_no;"
 btree_framework.operation(SQL(sql))
+print("------------------------")
+sql = "SELECT MAX(grade) FROM class_grade GROUP BY class_no;"
+btree_framework.operation(SQL(sql))
