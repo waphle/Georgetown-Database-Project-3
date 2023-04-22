@@ -32,7 +32,10 @@ class SQL:
         self.operation = self.parsed_sql.get_type()
         self.attributes = None
         self.table = None
+        self.joint = None
         self.conditions = None
+        self.having = None
+        self.on = None
         self.type = None
         self.values = None
         self.not_null = None
@@ -40,7 +43,6 @@ class SQL:
         self.update_values = None
         self.order_by = None
         self.group_by = None
-        self.having = None
         self.PK = None
         self.FK = None
         self.FK_table = None
@@ -57,7 +59,7 @@ class SQL:
                         self.attributes.append(select_token.value)
                     elif select_token.is_group:
                         for sub_token in select_token.tokens:
-                            if isinstance(sub_token, (sqlparse.sql.Identifier, sqlparse.sql.Function)) or\
+                            if isinstance(sub_token, (sqlparse.sql.Identifier, sqlparse.sql.Function)) or \
                                     sub_token.ttype is sqlparse.tokens.Wildcard:
                                 self.attributes.append(sub_token.value)
                 elif token.ttype == sqlparse.tokens.Keyword and token.value.upper() == "FROM":
@@ -65,6 +67,10 @@ class SQL:
                         self.parsed_sql.tokens[self.parsed_sql.token_index(token) + 2].get_real_name()
                 elif isinstance(token, sqlparse.sql.Where):
                     self.conditions = parse_conditions(self, token)
+                elif token.ttype == sqlparse.tokens.Keyword and token.value.upper() == "JOIN":
+                    self.operation = "JOIN"
+                    self.joint = \
+                        self.parsed_sql.tokens[self.parsed_sql.token_index(token) + 2].get_real_name()
                 elif token.ttype == sqlparse.tokens.Keyword and token.value.upper() == "GROUP BY":
                     group_token = self.parsed_sql.tokens[self.parsed_sql.token_index(token) + 2]
                     self.group_by = []
@@ -107,6 +113,31 @@ class SQL:
                         if p >= len(self.parsed_sql.tokens):
                             break
                         having_token = self.parsed_sql.tokens[p]
+                elif token.ttype == sqlparse.tokens.Keyword and token.value.upper() == "ON":
+                    if self.on is None:
+                        self.on = []
+                    p = self.parsed_sql.token_index(token) + 2
+                    on_token = self.parsed_sql.tokens[p]
+                    while on_token:
+                        self.operator = ""
+                        if isinstance(on_token, sqlparse.sql.Comparison):
+                            for cmp in on_token.tokens[1:-1]:
+                                if str(cmp) != " ":
+                                    self.operator += str(cmp)
+                            condition = {"column": str(on_token.left), "operator": self.operator,
+                                         "value": str(on_token.right)}
+                            self.on.append(condition)
+                        elif on_token.ttype == sqlparse.tokens.Keyword and on_token.value.upper() in ["AND",
+                                                                                                              "OR"]:
+                            self.on.append(on_token.value.upper())
+                        elif on_token.ttype == sqlparse.tokens.Whitespace:
+                            pass
+                        else:
+                            break
+                        p += 1
+                        if p >= len(self.parsed_sql.tokens):
+                            break
+                        on_token = self.parsed_sql.tokens[p]
         elif self.operation.upper() == 'INSERT':
             for token in self.parsed_sql.tokens:
                 if token.ttype == sqlparse.tokens.Keyword and token.value.upper() == "INTO":
