@@ -1,6 +1,11 @@
 from BTrees.OOBTree import OOBTree
 from sqlParser import SQL
 
+# References:
+# https://www.tutorialspoint.com/python/python_nodes.htm
+# https://inst.eecs.berkeley.edu/~cs61a/fa15/lab/lab05/
+# https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.tree.recognition.is_tree.html
+
 # list saved in main memory.
 databases = {}
 
@@ -337,7 +342,7 @@ def aggregate(node, func):
     else:
         return func(node) + sum([aggregate(child, func) for child in node.children()])
 
-# Grouping operator (incomplete)
+# Grouping operator
 def grouping(sqlParser):
     btree = OOBTree(2)
 
