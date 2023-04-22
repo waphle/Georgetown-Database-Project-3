@@ -1,5 +1,10 @@
 from BTrees.OOBTree import OOBTree
 
+# References:
+# https://www.tutorialspoint.com/python/python_nodes.htm
+# https://inst.eecs.berkeley.edu/~cs61a/fa15/lab/lab05/
+# https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.tree.recognition.is_tree.html
+
 # list saved in main memory.
 databases = {}
 
