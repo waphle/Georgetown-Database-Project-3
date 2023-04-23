@@ -8,8 +8,6 @@ class TestSQLParser(unittest.TestCase):
         sql = SQL(
             "SELECT column1, SUM(column2) FROM my_table WHERE column1 > 100 AND column3 = 'value' ORDER BY column1 DESC")
         self.assertEqual(sql.operation, "SELECT")
-        self.assertEqual(sql.attributes, ["column1", "SUM(column2)"])
-        self.assertEqual(sql.table, "my_table")
         self.assertEqual(sql.conditions, [
             {"column": "column1", "operator": ">", "value": "100"},
             "AND",
@@ -18,6 +16,8 @@ class TestSQLParser(unittest.TestCase):
         self.assertEqual(sql.order_by, ["column1 DESC"])
 
     def test_insert_query(self):
+        self.assertEqual(sql.attributes, ["column1", "SUM(column2)"])
+        self.assertEqual(sql.table, "my_table")
         sql = SQL("INSERT INTO my_table (column1, column2) VALUES ('value1', 'value2')")
         self.assertEqual(sql.operation, "INSERT")
         self.assertEqual(sql.table, "my_table")
