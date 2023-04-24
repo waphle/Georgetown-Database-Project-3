@@ -8,6 +8,7 @@ from BTrees.OOBTree import OOBTree
 # list saved in main memory.
 databases = {}
 
+
 class Table:
     def __init__(self, sql) -> None:
         self.tree = OOBTree()
@@ -191,6 +192,9 @@ def operation(sql):
                 elif col[-4:] == " ASC":
                     keys.append(col[:-4])
                     orders.append(1)
+                elif sql.order is not None:
+                    keys.append(col)
+                    orders.append(sql.order)
                 else:
                     keys.append(col)
                     orders.append(1)
@@ -270,14 +274,18 @@ def operation(sql):
                     output_type.append(database.type[database.attribute.index(new_col)])
                 output.append(new_data)
         else:
+            temp = []
+
+            for _, data in result.items():
+                temp.append(data)
+            temp = sorted(temp, key=lambda x: tuple(orders[k] * x[c] for k, c in enumerate(keys)))
+
             output = []
             output_type = []
             if sql.attributes == ["*"]:
-                for _, data in result.items():
-                    output.append(data)
-                output = sorted(output, key=lambda x: tuple(orders[k] * x[c] for k, c in enumerate(keys)))
+                output = temp
             else:
-                for _, data in result.items():
+                for data in temp:
                     new_data = {}
                     for col in sql.attributes:
                         if col == "*":
@@ -305,15 +313,14 @@ def operation(sql):
                             new_data[col] = data[col]
                         output_type.append(database.type[database.attribute.index(new_col)])
                     output.append(new_data)
-                output = sorted(output, key=lambda x: tuple(orders[k] * x[c] for k, c in enumerate(keys)))
 
         new_output = []
-
         if sql.having is not None and output != []:
             f = 0
             for condition in sql.having:
-                new_condition = condition.copy()
+                new_condition = {}
                 if condition != "AND" and condition != "OR":
+                    new_condition = condition.copy()
                     if condition["column"] not in output[0].keys():
                         print("Error, wrong column name!")
                     i = 0
@@ -338,8 +345,18 @@ def operation(sql):
                 elif f == 1:
                     temp = new_output.copy()
                     for data in new_output:
-                        or_having(temp, data, new_condition)
+                        and_having(temp, data, new_condition)
                     new_output = temp.copy()
+
+            if new_output:
+                new_keys = keys.copy()
+                for key in keys:
+                    i = new_keys.index(key)
+                    if key not in new_output[0].keys():
+                        del new_keys[i]
+                        del orders[i]
+                if new_keys:
+                    new_output = sorted(new_output, key=lambda x: tuple(orders[k] * x[c] for k, c in enumerate(keys)))
         else:
             new_output = output.copy()
         for out in new_output:
@@ -350,10 +367,44 @@ def operation(sql):
         table1 = sql.table
         database2 = databases.get(sql.joint)
         table2 = sql.joint
+
+        keys = []
+        orders = []
+
+        if sql.order_by is not None:
+            for col in sql.order_by:
+                if col[-5:] == " DESC":
+                    keys.append(col[:-5])
+                    orders.append(-1)
+                elif col[-4:] == " ASC":
+                    keys.append(col[:-4])
+                    orders.append(1)
+                elif sql.order is not None:
+                    keys.append(col)
+                    orders.append(sql.order)
+                else:
+                    keys.append(col)
+                    orders.append(1)
+        else:
+            for col in database1.PK:
+                keys.append(table1 + "." + col)
+                orders.append(1)
+
         if database1 is None or database2 is None:
             print("No such database!")
             return
 
+        attributes = []
+        for attribute in database1.attribute:
+            attributes.append(table1 + "." + attribute)
+        for attribute in database2.attribute:
+            attributes.append(table2 + "." + attribute)
+        pk1 = []
+        pk2 = []
+        for pk in database1.PK:
+            pk1.append(table1 + "." + pk)
+        for pk in database2.PK:
+            pk2.append(table2 + "." + pk)
         new_attribute = []
         for attribute in sql.attributes:
             if attribute == '*':
@@ -375,36 +426,166 @@ def operation(sql):
                 print("Wrong column name! Which table you mean?")
                 return
 
-        result = []
-        result_type = []
-        for _, data1 in database1.tree.items():
-            new_data1 = {}
-            for key, value in data1.items():
-                new_data1[table1 + '.' + key] = value
-                result_type.append(database1.type[database1.attribute.index(key)])
-            for _, data2 in database2.tree.items():
-                new_data2 = {}
-                for key, value in data2.items():
-                    new_data2[table2 + '.' + key] = value
-                    result_type.append(database2.type[database2.attribute.index(key)])
+
+        # optimizer on sort choice
+        f = 0
+        for conditions in sql.on:
+            if conditions["operator"] != "=":
+                f = 0
+                break
+            if (conditions["column"] in pk1 and conditions["value"] in pk2) or \
+                    (conditions["column"] in pk2 and conditions["value"] in pk1):
+                f = 1
+            else:
+                f = 0
+                break
+        if len(database1.tree) < 10000 or len(database2.tree) < 10000:
+            f = 0
+
+        # merge sort
+        if f == 1:
+            keys1 = []
+            orders1 = []
+            keys2 = []
+            orders2 = []
+            for col in database1.PK:
+                keys1.append(table1 + "." + col)
+                orders1.append(1)
+            for col in database2.PK:
+                keys2.append(table2 + "." + col)
+                orders2.append(1)
+
+            result_type = []
+            output1 = []
+            for _, data in database1.tree.items():
                 new_data = {}
-                new_data.update(new_data1)
-                new_data.update(new_data2)
-                result.append(new_data)
+                for key, value in data.items():
+                    new_data[table1 + '.' + key] = value
+                    result_type.append(database1.type[database1.attribute.index(key)])
+                output1.append(new_data)
+            output2 = []
+            for _, data in database2.tree.items():
+                new_data = {}
+                for key, value in data.items():
+                    new_data[table2 + '.' + key] = value
+                    result_type.append(database2.type[database2.attribute.index(key)])
+                output2.append(new_data)
+            output1 = sorted(output1, key=lambda x: tuple(orders1[k] * x[c] for k, c in enumerate(keys1)))
+            output2 = sorted(output2, key=lambda x: tuple(orders2[k] * x[c] for k, c in enumerate(keys2)))
+            p1 = 0
+            p2 = 0
 
-        output = result_from_on(sql.on, result, result_type, new_attribute)
+            result = []
 
-        new_output = []
-        for data in output:
+            while p1 < len(output1) and p2 < len(output2):
+                for condition in sql.on:
+                    f = 0
+                    if condition["column"] in pk1:
+                        if output1[p1][condition["column"]] == output2[p2][condition["value"]]:
+                            f = 0
+                        elif output1[p1][condition["column"]] < output2[p2][condition["value"]]:
+                            f = 1
+                            break
+                        else:
+                            f = 2
+                            break
+                    else:
+                        if output2[p2][condition["column"]] == output1[p1][condition["value"]]:
+                            f = 0
+                        elif output2[p2][condition["column"]] > output1[p1][condition["value"]]:
+                            f = 1
+                            break
+                        else:
+                            f = 2
+                            break
+                if f == 0:
+                    new_data = {}
+                    new_data.update(output1[p1])
+                    new_data.update(output2[p2])
+                    result.append(new_data)
+                    p1 += 1
+                    p2 += 1
+                elif f == 1:
+                    p1 += 1
+                elif f == 2:
+                    p2 += 1
+
+        # nested-loop
+        else:
+            result = []
+            result_type = []
+            for _, data1 in database1.tree.items():
+                new_data1 = {}
+                for key, value in data1.items():
+                    new_data1[table1 + '.' + key] = value
+                    result_type.append(database1.type[database1.attribute.index(key)])
+                for _, data2 in database2.tree.items():
+                    new_data2 = {}
+                    for key, value in data2.items():
+                        new_data2[table2 + '.' + key] = value
+                        result_type.append(database2.type[database2.attribute.index(key)])
+                    new_data = {}
+                    new_data.update(new_data1)
+                    new_data.update(new_data2)
+                    result.append(new_data)
+            result = result_from_on(sql.on, result, result_type, attributes)
+
+        output = []
+        for data in result:
             new_data = {}
             for attribute in sql.attributes:
                 if attribute == '*':
                     new_data = data.copy()
                     break
                 new_data[attribute] = data[attribute]
-            new_output.append(new_data)
+            output.append(new_data)
+        new_output = []
+        if sql.conditions is not None and output != []:
+            f = 0
+            for condition in sql.conditions:
+                new_condition = {}
+                if condition != "AND" and condition != "OR":
+                    new_condition = condition.copy()
+                    if condition["column"] not in output[0].keys():
+                        print("Error, wrong column name!")
+                    i = 0
+                    for key in output[0].keys():
+                        if key == condition["column"]:
+                            break
+                        i += 1
+                    if new_condition["value"] in output[0].keys():
+                        new_condition["column2"] = new_condition["value"]
+                        new_condition["value"] = None
+                    elif result_type[i] == "INT":
+                        new_condition["value"] = int(condition["value"])
+                    else:
+                        new_condition["value"] = condition["value"][1:-1]
+                if condition == "AND":
+                    f = 1
+                elif condition == "OR":
+                    f = 0
+                elif f == 0:
+                    for data in output:
+                        or_having(new_output, data, new_condition)
+                elif f == 1:
+                    temp = new_output.copy()
+                    for data in new_output:
+                        and_having(temp, data, new_condition)
+                    new_output = temp.copy()
 
-        for data in output:
+            if new_output:
+                new_keys = keys.copy()
+                for key in keys:
+                    i = new_keys.index(key)
+                    if key not in new_output[0].keys():
+                        del new_keys[i]
+                        del orders[i]
+                if new_keys:
+                    new_output = sorted(new_output, key=lambda x: tuple(orders[k] * x[c] for k, c in enumerate(keys)))
+        else:
+            new_output = output.copy()
+
+        for data in new_output:
             print(data)
 
 
@@ -413,8 +594,9 @@ def result_from_on(conditions, result, result_type, attributes):
     if conditions is not None and result != []:
         f = 0
         for condition in conditions:
-            new_condition = condition.copy()
+            new_condition = {}
             if condition != "AND" and condition != "OR":
+                new_condition = condition.copy()
                 if condition["column"] not in result[0].keys():
                     print("Error, wrong column name!")
                 i = 0
@@ -450,8 +632,9 @@ def result_from_conditions(conditions, database):
     result = OOBTree()
     f = 0
     for condition in conditions:
-        new_condition = condition.copy()
+        new_condition = {}
         if condition != "AND" and condition != "OR":
+            new_condition = condition.copy()
             if condition["column"] not in database.attribute:
                 print("Error, wrong column name!")
             i = database.attribute.index(condition["column"])
@@ -605,35 +788,35 @@ def and_having(output, data, condition):
     if condition["operator"] == "=":
         if condition["value"] is not None:
             if data[condition["column"]] != condition["value"]:
-                del output[data]
+                output.remove(data)
         else:
             if data[condition["column"]] != data[condition["column2"]]:
-                del output[data]
+                output.remove(data)
     elif condition["operator"] == ">":
         if condition["value"] is not None:
             if data[condition["column"]] <= condition["value"]:
-                del output[data]
+                output.remove(data)
         else:
             if data[condition["column"]] <= data[condition["column2"]]:
-                del output[data]
+                output.remove(data)
     elif condition["operator"] == "<":
         if condition["value"] is not None:
             if data[condition["column"]] >= condition["value"]:
-                del output[data]
+                output.remove(data)
         else:
             if data[condition["column"]] >= data[condition["column2"]]:
-                del output[data]
+                output.remove(data)
     elif condition["operator"] == ">=":
         if condition["value"] is not None:
             if data[condition["column"]] < condition["value"]:
-                del output[data]
+                output.remove(data)
         else:
             if data[condition["column"]] < data[condition["column2"]]:
-                del output[data]
+                output.remove(data)
     elif condition["operator"] == "<=":
         if condition["value"] is not None:
             if data[condition["column"]] > condition["value"]:
-                del output[data]
+                output.remove(data)
         else:
             if data[condition["column"]] > data[condition["column2"]]:
-                del output[data]
+                output.remove(data)
