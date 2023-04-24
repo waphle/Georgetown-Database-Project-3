@@ -1,6 +1,7 @@
 # the sql parser
 import sqlparse
 from sqlparse.exceptions import SQLParseError
+import optimizer
 
 
 def parse_conditions(self, where_token):
@@ -42,6 +43,7 @@ class SQL:
         self.insert_values = None
         self.update_values = None
         self.order_by = None
+        self.order = None
         self.group_by = None
         self.PK = None
         self.FK = None
@@ -89,6 +91,12 @@ class SQL:
                         for sub_token in order_token.tokens:
                             if isinstance(sub_token, (sqlparse.sql.Identifier, sqlparse.sql.Function)):
                                 self.order_by.append(order_token.value)
+                    if self.parsed_sql.token_index(token) + 4 < len(self.parsed_sql.tokens):
+                        order_token = self.parsed_sql.tokens[self.parsed_sql.token_index(token) + 4]
+                        if order_token.value == "DESC":
+                            self.order = -1
+                        elif order_token.value == "ASC":
+                            self.order = 1
                 elif token.ttype == sqlparse.tokens.Keyword and token.value.upper() == "HAVING":
                     self.having = []
                     p = self.parsed_sql.token_index(token) + 2
@@ -128,7 +136,7 @@ class SQL:
                                          "value": str(on_token.right)}
                             self.on.append(condition)
                         elif on_token.ttype == sqlparse.tokens.Keyword and on_token.value.upper() in ["AND",
-                                                                                                              "OR"]:
+                                                                                                      "OR"]:
                             self.on.append(on_token.value.upper())
                         elif on_token.ttype == sqlparse.tokens.Whitespace:
                             pass
@@ -207,8 +215,10 @@ class SQL:
                 if isinstance(token, sqlparse.sql.Parenthesis):
                     f = 0
                     # print(token.tokens)
+                    pre_token = None
                     for sub_token in token.tokens:
-                        if sub_token.ttype == sqlparse.tokens.Keyword and sub_token.value.upper() == "FOREIGN":
+                        if sub_token.ttype == sqlparse.tokens.Keyword and sub_token.value.upper() == "FOREIGN"\
+                                and pre_token == ",":
                             if f == 1:
                                 self.error = True
                                 return
@@ -225,7 +235,8 @@ class SQL:
                                 self.FK_table.append(None)
                             f = -1
                             p = None
-                        elif sub_token.ttype == sqlparse.tokens.Keyword and sub_token.value.upper() == "PRIMARY":
+                        elif sub_token.ttype == sqlparse.tokens.Keyword and sub_token.value.upper() == "PRIMARY"\
+                                and pre_token == ",":
                             if f == 1:
                                 self.error = True
                                 return
@@ -331,8 +342,11 @@ class SQL:
                             p = len(self.FK) - 1
                         elif isinstance(sub_token, sqlparse.sql.IdentifierList):
                             # print(sub_token.tokens)
+                            pre_sub_token = None
                             for sub_sub_token in sub_token:
-                                if sub_sub_token.ttype == sqlparse.tokens.Keyword and sub_sub_token.value.upper() == "FOREIGN":
+                                if sub_sub_token.ttype == sqlparse.tokens.Keyword \
+                                        and sub_sub_token.value.upper() == "FOREIGN"\
+                                        and pre_sub_token == ",":
                                     if f == 1:
                                         self.error = True
                                         return
@@ -348,7 +362,9 @@ class SQL:
                                         self.FK.append(False)
                                         self.FK_table.append(None)
                                     f = -1
-                                elif sub_sub_token.ttype == sqlparse.tokens.Keyword and sub_sub_token.value.upper() == "PRIMARY":
+                                elif sub_sub_token.ttype == sqlparse.tokens.Keyword \
+                                        and sub_sub_token.value.upper() == "PRIMARY"\
+                                        and pre_sub_token == ",":
                                     if f == 1:
                                         self.error = True
                                         return
@@ -414,6 +430,10 @@ class SQL:
                                         self.error = True
                                         return
                                     f = 3
+                                if sub_sub_token.value != " ":
+                                    pre_sub_token = sub_sub_token.value
+                        if sub_token.value != " ":
+                            pre_token = sub_token.value
                     if f == 1:
                         self.error = True
                         return
@@ -464,3 +484,48 @@ class SQL:
                     self.FK_table.append(self.parsed_sql.tokens[20].value)
         else:
             self.error = True
+
+        if self.conditions is not None:
+            if ("AND" in self.conditions and "OR" not in self.conditions) or \
+                    ("OR" in self.conditions and "AND" not in self.conditions):
+                conds = []
+                st = ""
+                for condition in self.conditions:
+                    if condition != "AND" and condition != "OR":
+                        conds.append(
+                            optimizer.Condition(condition["column"], condition["operator"], condition["value"]))
+                    else:
+                        st = condition
+                conds = optimizer.RBO(conds)
+                f = 0
+                new_cond = []
+                for condition in conds:
+                    if f == 1:
+                        new_cond.append(st)
+                    f = 1
+                    temp = {"column": condition.column, "operator": condition.operator, "value": condition.value}
+                    new_cond.append(temp)
+                self.conditions = new_cond
+
+        if self.having is not None:
+            if ("AND" in self.having and "OR" not in self.having) or \
+                    ("OR" in self.having and "AND" not in self.having):
+                have = []
+                st = ""
+                for condition in self.having:
+                    if condition != "AND" and condition != "OR":
+                        have.append(
+                            optimizer.Condition(condition["column"], condition["operator"], condition["value"]))
+                    else:
+                        st = condition
+                have = optimizer.RBO(have)
+                f = 0
+                new_have = []
+                for condition in have:
+                    if f == 1:
+                        new_have.append(st)
+                    f = 1
+                    temp = {"column": condition.column, "operator": condition.operator, "value": condition.value}
+                    new_have.append(temp)
+                self.having = new_have
+

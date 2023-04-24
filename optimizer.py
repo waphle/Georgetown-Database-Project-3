@@ -1,21 +1,21 @@
-from sqlParser import SQL
+
 
 class Condition:
-    def __init__(self, column, operator, value, sqlParser):
+    def __init__(self, column, operator, value):
         self.column = column
         self.operator = operator
         self.value = value
-        self.sqlParser = ""
 
-    def __repr__(self, sqlParser):
-        return f"{self.column} {self.operator} {self.value} {self.sqlParser}"
+    def __repr__(self):
+        return f"{self.column} {self.operator} {self.value} "
+
 
 # Incomplete. Needs more RBO stuff
-def RBO(conditions, sqlParser):
+def RBO(conds):
     """
     Optimize the order of conditions based on a predefined set of rules.
     Args:
-        conditions (list): List of Condition objects.
+        conds (list): List of Condition objects.
     Returns:
         list: Ordered list of Condition objects.
     """
@@ -32,8 +32,9 @@ def RBO(conditions, sqlParser):
         else:
             return 3
 
-    return sorted(conditions, key=sort_key)
+    return sorted(conds, key=sort_key)
 
+'''
 # Example usage
 conditions = [
     Condition("column1", ">", "100"),
@@ -44,3 +45,4 @@ conditions = [
 optimized_conditions = RBO(conditions)
 
 print("Optimized Condition Order:", optimized_conditions)
+'''
