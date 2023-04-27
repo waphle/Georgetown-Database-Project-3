@@ -11,25 +11,33 @@ databases = {}
 
 class Table:
     def __init__(self, sql) -> None:
-        self.tree = OOBTree()
-        self.attribute = sql.attributes
-        self.type = sql.type
-        self.PK = []
-        if True in sql.PK:
-            i = 0
-            for pk in sql.PK:
-                if pk:
-                    self.PK.append(sql.attributes[i])
-                i += 1
-        self.FK = []
-        self.FK_table = []
-        if True in sql.FK:
-            self.FK = sql.FK
-            self.FK_table = sql.FK_table
-        if sql.not_null:
-            self.not_null = sql.not_null
-        if sql.values:
-            self.default = sql.values
+        if sql is None:
+            self.tree = OOBTree()
+            self.attribute = []
+            self.type = []
+            self.PK = []
+            self.FK = []
+            self.FK_table = []
+        else:
+            self.tree = OOBTree()
+            self.attribute = sql.attributes
+            self.type = sql.type
+            self.PK = []
+            if True in sql.PK:
+                i = 0
+                for pk in sql.PK:
+                    if pk:
+                        self.PK.append(sql.attributes[i])
+                    i += 1
+            self.FK = []
+            self.FK_table = []
+            if True in sql.FK:
+                self.FK = sql.FK
+                self.FK_table = sql.FK_table
+            if sql.not_null:
+                self.not_null = sql.not_null
+            if sql.values:
+                self.default = sql.values
 
 
 def operation(sql):
@@ -120,7 +128,10 @@ def operation(sql):
             for attribute in sql.attributes:
                 i = sql.attributes.index(attribute)
                 if new_data.get(attribute) is not None:
-                    new_data[attribute] = sql.update_values[i][1:-1]
+                    if database.type[database.attribute.index(attribute)] != 'INT':
+                        new_data[attribute] = sql.update_values[i][1:-1]
+                    else:
+                        new_data[attribute] = int(sql.update_values[i])
                 else:
                     print("Error, wrong column name!")
             database.tree[pk] = new_data
@@ -328,7 +339,7 @@ def operation(sql):
                         if key == condition["column"]:
                             break
                         i += 1
-                    if new_condition["value"] in database.attribute or new_condition["value"] in output[0].keys() :
+                    if new_condition["value"] in database.attribute or new_condition["value"] in output[0].keys():
                         new_condition["column2"] = new_condition["value"]
                         new_condition["value"] = None
                     elif output_type[i] == "INT":
@@ -360,14 +371,18 @@ def operation(sql):
         else:
             new_output = output.copy()
 
-        i = 0
+        check = []
         for out in new_output:
+            if out not in check:
+                check.append(out)
+        i = 0
+        for out in check:
             i += 1
             print(out)
             if sql.limit == i:
                 break
-        print("Totally" + len(new_output) + "line(s).")
-        print("Print" + i + "line(s)")
+        print("Totally " + str(len(check)) + " line(s).")
+        print("Print " + str(i) + " line(s)")
 
     elif sql.operation == "JOIN":
         database1 = databases.get(sql.table)
@@ -433,7 +448,6 @@ def operation(sql):
                 print("Wrong column name! Which table you mean?")
                 return
 
-
         # optimizer on sort choice
         f = 0
         for conditions in sql.on:
@@ -446,7 +460,7 @@ def operation(sql):
             else:
                 f = 0
                 break
-        if len(database1.tree) < 10000 or len(database2.tree) < 10000:
+        if len(database1.tree) < 10000 and len(database2.tree) < 10000:
             f = 0
 
         # merge sort
@@ -579,18 +593,18 @@ def operation(sql):
                     for data in new_output:
                         and_having(temp, data, new_condition)
                     new_output = temp.copy()
-
-            if new_output:
-                new_keys = keys.copy()
-                for key in keys:
-                    i = new_keys.index(key)
-                    if key not in new_output[0].keys():
-                        del new_keys[i]
-                        del orders[i]
-                if new_keys:
-                    new_output = sorted(new_output, key=lambda x: tuple(orders[k] * x[c] for k, c in enumerate(keys)))
         else:
             new_output = output.copy()
+
+        if new_output:
+            new_keys = keys.copy()
+            for key in keys:
+                i = new_keys.index(key)
+                if key not in new_output[0].keys():
+                    del new_keys[i]
+                    del orders[i]
+            if new_keys:
+                new_output = sorted(new_output, key=lambda x: tuple(orders[k] * x[c] for k, c in enumerate(keys)))
 
         for data in new_output:
             print(data)
@@ -713,6 +727,15 @@ def or_condition(result, data, pk, condition):
             if data[condition["column"]] <= data[condition["column2"]]:
                 if result.get(pk) is None:
                     result[pk] = data
+    elif condition["operator"] == "<>" or condition["operator"] == "!=":
+        if condition["value"] is not None:
+            if data[condition["column"]] != condition["value"]:
+                if result.get(pk) is None:
+                    result[pk] = data
+        else:
+            if data[condition["column"]] != data[condition["column2"]]:
+                if result.get(pk) is None:
+                    result[pk] = data
 
 
 def and_condition(result, data, pk, condition):
@@ -750,6 +773,13 @@ def and_condition(result, data, pk, condition):
                 del result[pk]
         else:
             if data[condition["column"]] > data[condition["column2"]]:
+                del result[pk]
+    elif condition["operator"] == "!=" or condition["operator"] == "<>":
+        if condition["value"] is not None:
+            if data[condition["column"]] == condition["value"]:
+                del result[pk]
+        else:
+            if data[condition["column"]] == data[condition["column2"]]:
                 del result[pk]
 
 
@@ -789,6 +819,13 @@ def or_having(output, data, condition):
         else:
             if data[condition["column"]] <= data[condition["column2"]]:
                 output.append(data)
+    elif condition["operator"] == "!=" or condition["operator"] == "<>":
+        if condition["value"] is not None:
+            if data[condition["column"]] != condition["value"]:
+                output.append(data)
+        else:
+            if data[condition["column"]] != data[condition["column2"]]:
+                output.append(data)
 
 
 def and_having(output, data, condition):
@@ -826,4 +863,11 @@ def and_having(output, data, condition):
                 output.remove(data)
         else:
             if data[condition["column"]] > data[condition["column2"]]:
+                output.remove(data)
+    elif condition["operator"] == "!=" or condition["operator"] == "<>":
+        if condition["value"] is not None:
+            if data[condition["column"]] == condition["value"]:
+                output.remove(data)
+        else:
+            if data[condition["column"]] == data[condition["column2"]]:
                 output.remove(data)

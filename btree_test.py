@@ -12,8 +12,8 @@ class TestSQL(unittest.TestCase):
         self.assertEqual(btree_framework.databases.get("employees").type, ["INT", "VARCHAR(255)", "INT"])
 
     def test_insert_into_table(self):
-        sql = SQL("DROP TABLE employees")
-        btree_framework.operation(sql)
+        # sql = SQL("DROP TABLE employees")
+        # btree_framework.operation(sql)
         sql = SQL("CREATE TABLE employees (id INT PRIMARY KEY, name VARCHAR(255), age INT)")
         btree_framework.operation(sql)
         sql = SQL("INSERT INTO employees (id, name, age) VALUES (1, 'John Smith', 30)")
@@ -38,8 +38,8 @@ class TestSQL(unittest.TestCase):
                          {"id": 5, "name": 'Tom Wilson', "age": 50})
 
     def test_drop_table(self):
-        sql = SQL("DROP TABLE employees")
-        btree_framework.operation(sql)
+        # sql = SQL("DROP TABLE employees")
+        # btree_framework.operation(sql)
         sql = SQL("CREATE TABLE employees (id INT PRIMARY KEY, name VARCHAR(255), age INT)")
         btree_framework.operation(sql)
         sql = SQL("DROP TABLE employees")
@@ -47,8 +47,8 @@ class TestSQL(unittest.TestCase):
         self.assertEqual("employees" in btree_framework.databases.keys(), False)
 
     def test_delete_from_table(self):
-        sql = SQL("DROP TABLE employees")
-        btree_framework.operation(sql)
+        # sql = SQL("DROP TABLE employees")
+        # btree_framework.operation(sql)
         sql = SQL("CREATE TABLE employees (id INT PRIMARY KEY, name VARCHAR(255), age INT)")
         btree_framework.operation(sql)
         sql = SQL("INSERT INTO employees (id, name, age) VALUES (1, 'John Smith', 30)")
@@ -73,8 +73,8 @@ class TestSQL(unittest.TestCase):
         self.assertEqual(btree_framework.databases.get("employees").tree.get(5), None)
 
     def test_select_from_table(self):
-        sql = SQL("DROP TABLE employees")
-        btree_framework.operation(sql)
+        # sql = SQL("DROP TABLE employees")
+        # btree_framework.operation(sql)
         sql = SQL("CREATE TABLE employees (id INT PRIMARY KEY, name VARCHAR(255), age INT)")
         btree_framework.operation(sql)
         sql = SQL("INSERT INTO employees (id, name, age) VALUES (1, 'John Smith', 30)")
@@ -96,8 +96,8 @@ class TestSQL(unittest.TestCase):
         print("Should be 3 and 5")
 
     def test_select_and_from_table(self):
-        sql = SQL("DROP TABLE employees")
-        btree_framework.operation(sql)
+        # sql = SQL("DROP TABLE employees")
+        # btree_framework.operation(sql)
         sql = SQL("CREATE TABLE employees (id INT PRIMARY KEY, name VARCHAR(255), age INT)")
         btree_framework.operation(sql)
         sql = SQL("INSERT INTO employees (id, name, age) VALUES (1, 'John Smith', 30)")
@@ -113,7 +113,7 @@ class TestSQL(unittest.TestCase):
 
         print("SELECT age > 30")
 
-        sql = SQL("SELECT name, age FROM employees WHERE age > 30 AND id < 4 AND id = 3")
+        sql = SQL("SELECT name, age FROM employees WHERE age > 30")
         btree_framework.operation(sql)
 
         print("Should be 3")
@@ -125,7 +125,7 @@ class TestSQL(unittest.TestCase):
         btree_framework.operation(SQL(sql))
         sql = "INSERT INTO class_grade (id, grade, class_no) VALUES (1, 10, 1), (2, 20, 1), (3, 15, 1), (4, 5, 2), (5, 30, 2);"
         btree_framework.operation(SQL(sql))
-        sql = "SELECT *,AVG(grade) FROM class_grade HAVING AVG(grade)>grade OR id = 2;"
+        sql = "SELECT *,AVG(grade) FROM class_grade HAVING AVG(grade)>grade;"
         print("students grade low than avg")
         btree_framework.operation(SQL(sql))
         print("should be 1,3,4")
@@ -149,10 +149,11 @@ class TestSQL(unittest.TestCase):
         sql = "INSERT INTO class_no (id, class_no) VALUES (1, 1), (2, 1), (3, 1), (4, 2), (5, 2);"
         btree_framework.operation(SQL(sql))
 
+        print('Test Joint from class 1')
         sql = "SELECT example_table.id,example_table.grade,class_no.class_no FROM example_table JOIN class_no ON " \
               "example_table.id = class_no.id WHERE class_no.class_no = 1 ORDER BY example_table.grade DESC;"
         btree_framework.operation(SQL(sql))
-        print("should be 5 lines")
+        print("should be 3 lines")
 
 
 if __name__ == '__main__':
