@@ -6,19 +6,20 @@ class TestSQLParser(unittest.TestCase):
 
     def test_select_query(self):
         sql = SQL(
-            "SELECT column1, SUM(column2) FROM my_table WHERE column1 > 100 AND column3 = 'value' ORDER BY column1 DESC")
+            "SELECT column1, SUM(column2) FROM my_table WHERE column1 > 100 AND column3 = 'value' ORDER BY SUM(column2) DESC;")
         self.assertEqual(sql.operation, "SELECT")
         self.assertEqual(sql.conditions, [
-            {"column": "column1", "operator": ">", "value": "100"},
+            {"column": "column3", "operator": "=", "value": "'value'"},
             "AND",
-            {"column": "column3", "operator": "=", "value": "'value'"}
+            {"column": "column1", "operator": ">", "value": "100"}
         ])
-        self.assertEqual(sql.order_by, ["column1 DESC"])
+        self.assertEqual(sql.order_by, ["SUM(column2)"])
+        self.assertEqual(sql.order, -1)
 
     def test_insert_query(self):
-        self.assertEqual(sql.attributes, ["column1", "SUM(column2)"])
-        self.assertEqual(sql.table, "my_table")
         sql = SQL("INSERT INTO my_table (column1, column2) VALUES ('value1', 'value2')")
+        self.assertEqual(sql.attributes, ["column1", "column2"])
+        self.assertEqual(sql.table, "my_table")
         self.assertEqual(sql.operation, "INSERT")
         self.assertEqual(sql.table, "my_table")
         self.assertEqual(sql.attributes, ['column1', 'column2'])
@@ -58,7 +59,7 @@ class TestSQLParser(unittest.TestCase):
         ])
 
     def test_select_query_with_and_condition(self):
-        sql = SQL("SELECT * FROM my_table WHERE column1 = 'value1' AND column2 < 100")
+        sql = SQL("SELECT * FROM my_table WHERE column2 < 100 AND column1 = 'value1'")
         self.assertEqual(sql.operation, "SELECT")
         self.assertEqual(sql.attributes, ["*"])
         self.assertEqual(sql.table, "my_table")
@@ -69,7 +70,8 @@ class TestSQLParser(unittest.TestCase):
         ])
 
     def test_select_query_with_single_aggregation_operator(self):
-        sql = SQL("SELECT COUNT(*) FROM my_table")
+        sql = SQL("SELECT COUNT(*) FROM my_table LIMIT 10")
+        self.assertEqual(sql.limit, 10)
         self.assertEqual(sql.operation, "SELECT")
         self.assertEqual(sql.attributes, ["COUNT(*)"])
         self.assertEqual(sql.table, "my_table")
