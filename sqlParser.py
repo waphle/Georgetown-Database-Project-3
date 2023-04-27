@@ -48,6 +48,7 @@ class SQL:
         self.PK = None
         self.FK = None
         self.FK_table = None
+        self.limit = 500
         # print(self.parsed_sql.tokens)
         if self.operation.upper() == 'SELECT':
             for token in self.parsed_sql.tokens:
@@ -146,6 +147,8 @@ class SQL:
                         if p >= len(self.parsed_sql.tokens):
                             break
                         on_token = self.parsed_sql.tokens[p]
+                elif token.ttype == sqlparse.tokens.Keyword and token.value.upper() == "LIMIT":
+                    self.limit = min(500, int(self.parsed_sql.tokens[self.parsed_sql.token_index(token) + 2].value))
         elif self.operation.upper() == 'INSERT':
             for token in self.parsed_sql.tokens:
                 if token.ttype == sqlparse.tokens.Keyword and token.value.upper() == "INTO":

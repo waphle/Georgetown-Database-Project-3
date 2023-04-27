@@ -70,7 +70,8 @@ class TestSQLParser(unittest.TestCase):
         ])
 
     def test_select_query_with_single_aggregation_operator(self):
-        sql = SQL("SELECT COUNT(*) FROM my_table")
+        sql = SQL("SELECT COUNT(*) FROM my_table LIMIT 10")
+        self.assertEqual(sql.limit, 10)
         self.assertEqual(sql.operation, "SELECT")
         self.assertEqual(sql.attributes, ["COUNT(*)"])
         self.assertEqual(sql.table, "my_table")

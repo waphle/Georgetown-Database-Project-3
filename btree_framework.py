@@ -328,7 +328,7 @@ def operation(sql):
                         if key == condition["column"]:
                             break
                         i += 1
-                    if new_condition["value"] in database.attribute:
+                    if new_condition["value"] in database.attribute or new_condition["value"] in output[0].keys() :
                         new_condition["column2"] = new_condition["value"]
                         new_condition["value"] = None
                     elif output_type[i] == "INT":
@@ -359,8 +359,15 @@ def operation(sql):
                     new_output = sorted(new_output, key=lambda x: tuple(orders[k] * x[c] for k, c in enumerate(keys)))
         else:
             new_output = output.copy()
+
+        i = 0
         for out in new_output:
+            i += 1
             print(out)
+            if sql.limit == i:
+                break
+        print("Totally" + len(new_output) + "line(s).")
+        print("Print" + i + "line(s)")
 
     elif sql.operation == "JOIN":
         database1 = databases.get(sql.table)
