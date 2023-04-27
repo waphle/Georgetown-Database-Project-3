@@ -3,6 +3,7 @@ import json
 from BTrees.OOBTree import OOBTree
 import btree_framework
 from sqlParser import SQL
+from btree_framework import Table
 
 
 def data_store(db, table, name):
@@ -21,12 +22,13 @@ def data_store(db, table, name):
 def data_load(db, name):
     retrieved_json_data = db.get(name)
     retrieved_data = json.loads(retrieved_json_data)
-    d = btree_framework.Table(sql=None)
+    d = Table(sql=None)
     d.tree.update(retrieved_data['tree'])
     d.attribute = retrieved_data['attributes']
     d.type = retrieved_data['type']
     d.PK = retrieved_data['PK']
     d.FK = retrieved_data['FK']
     d.FK_table = retrieved_data['FK_table']
-    return d
+    database = {name: d}
+    return database
 
